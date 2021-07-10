@@ -1,0 +1,12 @@
+/vsf/db.sqlite3
+/vsf/teste.log
+/vsf/spreadsheets
+*.pem
+
+# Django
+*.log
+*.pot
+*.pyc
+__pycache__
+db.sqlite3
+media
