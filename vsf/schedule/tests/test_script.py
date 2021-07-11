@@ -23,9 +23,8 @@ class ScriptTests(TestCase):
 
     def test_processing(self):
         script.save_spreadsheets(self.entries)
-        script.process_spreadsheets(Spreadsheet.objects.all(), 5)
-        import pdb
-        pdb.set_trace()
+        for spread in Spreadsheet.objects.all():
+            script.process_spreadsheet(spread, 5)
         teste = Spreadsheet.objects.annotate(
             num_schedules=Count('schedule'))
         print('Stats:')

@@ -1,6 +1,7 @@
 /vsf/db.sqlite3
-/vsf/teste.log
+/vsf/*.log
 /vsf/spreadsheets
+/vsf/staticfiles
 *.pem
 
 # Django

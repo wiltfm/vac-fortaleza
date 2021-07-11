@@ -2,14 +2,15 @@ import requests
 import shutil
 import signal
 import sys
-import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
+import concurrent
 
 import fitz
 
 from django.shortcuts import render
 from django.core.files.storage import default_storage
+from django.conf import settings
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -19,12 +20,14 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from schedule.models import Spreadsheet, Schedule
 from schedule.serializers import ScheduleSerializer
-from schedule.parse import ScheduleParse
+from schedule.parsers import ScheduleParser, str_to_date
 
 
 ROOT_SPREADSHEET_URL = 'https://spreadsheets.google.com/feeds/list/1IJBDu8dRGLkBgX72sRWKY6R9GfefsaDCXBd3Dz9PZNs/14/public/values'
 NAMESPACE = {'xmlns': 'http://www.w3.org/2005/Atom',
              'gsx': 'http://schemas.google.com/spreadsheets/2006/extended'}
+SQLITE_MAX_THREADS = 1
+POSTGRES_MAX_THREADS = 4
 
 signal.signal(signal.SIGINT, lambda _, __: sys.exit(0))
 
@@ -37,9 +40,11 @@ def run():
     entries = get_xml_entry_element(xml)
     save_spreadsheets(entries)
     pending = Spreadsheet.objects.filter(processed=False).order_by('-date')
-    print(f'Peding spreadsheets: {pending.count()}')
-    save_spreadsheets_files(pending)
-    process_spreadsheets(pending)
+    print(f'Pending spreadsheets: {pending.count()}')
+    max_threads = POSTGRES_MAX_THREADS if settings.DEBUG is False else SQLITE_MAX_THREADS
+    executor = concurrent.futures.ThreadPoolExecutor(max_threads)
+    futures = [executor.submit(process_spreadsheet, spread) for spread in pending]
+    concurrent.futures.wait(futures)
 
 
 def get_root_spreadsheet():
@@ -60,35 +65,6 @@ def get_xml_entry_element(xml):
         if not gsx_pdf.text.endswith('.pdf'):
             continue
 
-        date = None
-
-        regex_date_search = re.search(
-            r'(\d{2}/\d{2}/\d{2})', gsx_titulo.text, re.I)
-        if not regex_date_search:
-            regex_date_search = re.search(
-                r'(\d{2}\.\d{2}\.\d{2})', gsx_titulo.text, re.I)
-        if regex_date_search:
-            date_str = regex_date_search.group(1)
-            try:
-                date = datetime.strptime(
-                    date_str + " 00:00:00", '%d/%m/%y %H:%M:%S')
-            except:
-                pass
-
-        if date is None:
-            regex_date_search = re.search(
-                r'(\d{2}/\d{2}/\d{4})', gsx_titulo.text, re.I)
-            if not regex_date_search:
-                regex_date_search = re.search(
-                    r'(\d{2}\.\d{2}\.\d{4})', gsx_titulo.text, re.I)
-            if regex_date_search:
-                date_str = regex_date_search.group(1)
-                try:
-                    date = datetime.strptime(
-                        date_str + " 00:00:00", '%d/%m/%Y %H:%M:%S')
-                except:
-                    pass
-
         pdf_url = gsx_pdf.text
         if pdf_url.startswith('./'):
             pdf_url = f'https://coronavirus.fortaleza.ce.gov.br/{pdf_url[2:]}'
@@ -96,7 +72,7 @@ def get_xml_entry_element(xml):
         yield {
             'name': gsx_titulo.text,
             'url': pdf_url,
-            'date': date,
+            'date': str_to_date(gsx_titulo.text),
         }
 
 
@@ -107,79 +83,66 @@ def save_spreadsheets(entries):
         )
 
 
-def save_spreadsheets_files(spreadsheets):
-    for spreadsheet in spreadsheets:
+def open_spreadsheet_files(spreadsheet):
+    file_name = spreadsheet.url.split('/')[-1].strip()
+    relative_path = f'spreadsheets/{file_name}'
 
-        file_name = spreadsheet.url.split('/')[-1].strip()
-        relative_path = f'spreadsheets/{file_name}'
+    if not default_storage.exists(relative_path):
+        with requests.get(spreadsheet.url, stream=True) as response:
+            if response.status_code == 200:
+                print(f'New file: writing {file_name} ...')
+                with default_storage.open(relative_path, 'wb') as pdf_file:
+                    shutil.copyfileobj(response.raw, pdf_file)
 
-        if not file_name.endswith('.pdf'):
-            continue
-
-        if not default_storage.exists(relative_path):
-            with requests.get(spreadsheet.url, stream=True) as response:
-                if response.status_code == 200:
-                    print(f'New file: writing {file_name} ...')
-                    with default_storage.open(relative_path, 'wb') as pdf_file:
-                        shutil.copyfileobj(response.raw, pdf_file)
+    return fitz.open(relative_path)
 
 
-def process_spreadsheets(spreadsheets, limit_schedules_per_spreadsheet=0):
-    TRESHOULD_INVALID_LINES = 40
+def process_spreadsheet(spreadsheet, limit_schedules_per_spreadsheet=0):
+    TRESHOULD_INVALID_LINES_PER_PAGE = 30
+    print(f'Processing {spreadsheet.name}\n\n')
+    try:
+        with open_spreadsheet_files(spreadsheet) as pdf_file:
+            processed = True
+            for pg_number, page in enumerate(pdf_file):
+                invalid_lines_per_page = 0
+                blocks = page.get_text('blocks')
+                for line_number, block in enumerate(blocks):
+                    try:
+                        text_line = block[4]
+                        parse = ScheduleParser(text_line, debug=False)
+                        if parse.is_valid:
+                            Schedule.objects.update_or_create(
+                                name=parse.person_name,
+                                birth_date=parse.person_birth,
+                                spreadsheet=spreadsheet,
+                                place=parse.place,
+                                date=parse.datetime(),
+                                dose=parse.dose,
+                                spreadsheet_page=pg_number + 1,
+                                spreadsheet_line=line_number + 1
+                            )
+                        else:
+                            invalid_lines_per_page += 1
+                    except Exception as e:
+                        print('parse exception', repr(e), 'line', text_line.replace('\n', '').strip())
+                        pass
 
-    for spreadsheet in spreadsheets:
-
-        file_name = spreadsheet.url.split('/')[-1].strip()
-        relative_path = f'spreadsheets/{file_name}'
-
-        if not file_name.endswith('.pdf'):
-            continue
-
-        print(f'Processing {spreadsheet.name}\n\n')
-
-        invalid_lines = 0
-        try:
-            with fitz.open(relative_path) as pdf_file:
-                processed = True
-                for pg_number, page in enumerate(pdf_file):
-                    blocks = page.get_text('blocks')
-                    for line_number, block in enumerate(blocks):
-                        try:
-                            text_line = block[4]
-                            parse = ScheduleParse(text_line, debug=False)
-                            if parse.is_valid:
-                                Schedule.objects.update_or_create(
-                                    name=parse.person_name,
-                                    birth_date=parse.person_birth,
-                                    spreadsheet=spreadsheet,
-                                    place=parse.place,
-                                    date=parse.datetime(),
-                                    dose=parse.dose,
-                                    spreadsheet_page=pg_number + 1,
-                                    spreadsheet_line=line_number + 1
-                                )
-                            else:
-                                invalid_lines += 1
-                        except Exception as e:
-                            print('parse exception', repr(e), 'line', text_line.replace('\n', '').strip())
-                            pass
-
-                    if limit_schedules_per_spreadsheet:
-                        if Schedule.objects.count() > limit_schedules_per_spreadsheet:
-                            print('text_line', text_line)
-                            print('Already filled the required schedules')
-                            processed = False
-                            break
-
-                    if invalid_lines > TRESHOULD_INVALID_LINES:
+                if limit_schedules_per_spreadsheet:
+                    if Schedule.objects.count() > limit_schedules_per_spreadsheet:
                         print('text_line', text_line)
-                        print('ignore {spreadsheet.name} too many non valid schedules')
+                        print('Already filled the required schedules')
                         processed = False
                         break
 
-                spreadsheet.processed = processed
-                spreadsheet.save()
+                if invalid_lines_per_page > TRESHOULD_INVALID_LINES_PER_PAGE:
+                    print('text_line', text_line)
+                    print(f'ignore {spreadsheet.name} too many non valid schedules')
+                    processed = False
+                    break
 
-        except Exception as e:
-            print('general exception', repr(e))
-            pass
+            spreadsheet.processed = processed
+            spreadsheet.save()
+
+    except Exception as e:
+        print('general exception', repr(e))
+        pass
