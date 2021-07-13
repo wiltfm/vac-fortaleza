@@ -3,7 +3,7 @@ import shutil
 import signal
 import sys
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta
 import concurrent
 
 import fitz
@@ -11,6 +11,7 @@ import fitz
 from django.shortcuts import render
 from django.core.files.storage import default_storage
 from django.conf import settings
+from django.db.models import Max
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -33,17 +34,20 @@ signal.signal(signal.SIGINT, lambda _, __: sys.exit(0))
 
 
 def run():
+    limit_date = (datetime.now() - timedelta(days=14)).date()
     xml = get_root_spreadsheet()
     if xml is None:
         print('Root xml not found')
         return
-    entries = get_xml_entry_element(xml)
+    entries = get_xml_entry_element(xml, limit_date)
     save_spreadsheets(entries)
-    pending = Spreadsheet.objects.filter(processed=False).order_by('-date')
+    pending = Spreadsheet.objects.filter(
+        processed=False, date__gte=limit_date).order_by('-date')
     print(f'Pending spreadsheets: {pending.count()}')
     max_threads = POSTGRES_MAX_THREADS if settings.DEBUG is False else SQLITE_MAX_THREADS
     executor = concurrent.futures.ThreadPoolExecutor(max_threads)
-    futures = [executor.submit(process_spreadsheet, spread) for spread in pending]
+    futures = [executor.submit(process_spreadsheet, spread)
+               for spread in pending]
     concurrent.futures.wait(futures)
 
 
@@ -55,7 +59,7 @@ def get_root_spreadsheet():
     return None
 
 
-def get_xml_entry_element(xml):
+def get_xml_entry_element(xml, limit_date):
     root = ET.fromstring(xml)
 
     for entry in root.findall('xmlns:entry', NAMESPACE):
@@ -69,10 +73,15 @@ def get_xml_entry_element(xml):
         if pdf_url.startswith('./'):
             pdf_url = f'https://coronavirus.fortaleza.ce.gov.br/{pdf_url[2:]}'
 
+        date = str_to_date(gsx_titulo.text)
+        if not date or date <= limit_date:
+            print(f'skipping spreadsheet {gsx_titulo.text}')
+            continue
+
         yield {
             'name': gsx_titulo.text,
             'url': pdf_url,
-            'date': str_to_date(gsx_titulo.text),
+            'date': date,
         }
 
 
@@ -100,18 +109,35 @@ def open_spreadsheet_files(spreadsheet):
 def process_spreadsheet(spreadsheet, limit_schedules_per_spreadsheet=0):
     TRESHOULD_INVALID_LINES_PER_PAGE = 30
     print(f'Processing {spreadsheet.name}\n\n')
+
     try:
         with open_spreadsheet_files(spreadsheet) as pdf_file:
+
             processed = True
-            for pg_number, page in enumerate(pdf_file):
+
+            saved_schedules = Schedule.objects.filter(spreadsheet=spreadsheet)
+            page_start = (saved_schedules.aggregate(
+                Max('spreadsheet_page')).get('spreadsheet_page__max') or 1) - 1
+            page_end = len(pdf_file)
+            line_start = (saved_schedules.filter(spreadsheet_page=page_start).aggregate(
+                Max('spreadsheet_line')).get('spreadsheet_line__max') or -1) + 1
+
+            for pg_number in range(page_start, page_end):
+
+                page = pdf_file[pg_number]
                 invalid_lines_per_page = 0
+                schedules_bulk = []
+
                 blocks = page.get_text('blocks')
-                for line_number, block in enumerate(blocks):
+
+                for line_number in range(line_start, len(blocks)):
+                    block = blocks[line_number]
+
                     try:
                         text_line = block[4]
                         parse = ScheduleParser(text_line, debug=False)
                         if parse.is_valid:
-                            Schedule.objects.update_or_create(
+                            schedules_bulk.append(Schedule(
                                 name=parse.person_name,
                                 birth_date=parse.person_birth,
                                 spreadsheet=spreadsheet,
@@ -120,11 +146,12 @@ def process_spreadsheet(spreadsheet, limit_schedules_per_spreadsheet=0):
                                 dose=parse.dose,
                                 spreadsheet_page=pg_number + 1,
                                 spreadsheet_line=line_number + 1
-                            )
+                            ))
                         else:
                             invalid_lines_per_page += 1
                     except Exception as e:
-                        print('parse exception', repr(e), 'line', text_line.replace('\n', '').strip())
+                        print('parse exception', repr(e), 'line',
+                              text_line.replace('\n', '').strip())
                         pass
 
                 if limit_schedules_per_spreadsheet:
@@ -136,9 +163,16 @@ def process_spreadsheet(spreadsheet, limit_schedules_per_spreadsheet=0):
 
                 if invalid_lines_per_page > TRESHOULD_INVALID_LINES_PER_PAGE:
                     print('text_line', text_line)
-                    print(f'ignore {spreadsheet.name} too many non valid schedules')
+                    print(
+                        f'ignore {spreadsheet.name} too many non valid schedules')
                     processed = False
                     break
+
+                qtd_bulk = len(schedules_bulk)
+                if qtd_bulk:
+                    print(f'saving {qtd_bulk} schedules at pg {pg_number}/{page_end} from {spreadsheet.name}')
+                    Schedule.objects.bulk_create(schedules_bulk)
+                line_start = 0
 
             spreadsheet.processed = processed
             spreadsheet.save()
