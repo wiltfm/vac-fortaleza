@@ -17,7 +17,7 @@ class ScheduleView(viewsets.ReadOnlyModelViewSet):
     """
         Agendamentos da vacina em Fortaleza-CE
     """
-    queryset = Schedule.objects.all()
+    queryset = Schedule.objects.select_related('spreadsheet').all()
     serializer_class = ScheduleSerializer
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ['name', 'date']
