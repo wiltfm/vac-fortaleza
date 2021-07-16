@@ -23,3 +23,14 @@ class Schedule(models.Model):
     date = models.DateTimeField()
     dose = models.IntegerField()
     iat = models.DateTimeField(auto_now_add=True)
+
+
+class EmailNotification(models.Model):
+    name = models.CharField(max_length=300)
+    email = models.EmailField()
+    second_dose_sent = models.BooleanField(null=True, default=False)
+    sent_at = models.DateTimeField(null=True)
+    iat = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['name', 'email']

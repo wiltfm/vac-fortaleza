@@ -1,8 +1,8 @@
-from django.urls import reverse
+from django.urls import reverse, exceptions
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..models import Schedule, Spreadsheet
+from ..models import Schedule, Spreadsheet, EmailNotification
 from ..serializers import ScheduleSerializer, SpreadsheetSerializer
 
 
@@ -31,7 +31,7 @@ class ScheduleTests(APITestCase):
 
     def test_list_schedule(self):
         """
-            Garante a obtenção da lista de agendamentos.
+            Assure list of schedules
         """
         url = reverse('schedule-list')
         response = self.client.get(url, format='json')
@@ -42,7 +42,7 @@ class ScheduleTests(APITestCase):
 
     def test_create_schedule(self):
         """
-            Garante que a única rota permitida é a da lista
+            Assure only list is allowed
         """
         url = reverse('schedule-list')
         data = {
@@ -60,7 +60,7 @@ class ScheduleTests(APITestCase):
 
     def test_update_schedule(self):
         """
-            Garante que a única rota permitida é a da lista
+            Assure only list is allowed
         """
         schedule = Schedule.objects.all().first()
         url = reverse('schedule-detail', kwargs={"pk": schedule.pk})
@@ -80,7 +80,7 @@ class ScheduleTests(APITestCase):
 
     def test_delete_schedule(self):
         """
-            Garante que a única rota permitida é a da lista
+            Assure only list is allowed
         """
         schedule = Schedule.objects.all().first()
         url = reverse('schedule-detail', kwargs={"pk": schedule.pk})
@@ -102,7 +102,7 @@ class SpreadsheetTests(APITestCase):
 
     def test_list_spreadsheet(self):
         """
-            Garante a obtenção da lista de pdfs.
+            Assure list of spreadsheets
         """
         url = reverse('spreadsheet-list')
         response = self.client.get(url, format='json')
@@ -113,7 +113,7 @@ class SpreadsheetTests(APITestCase):
 
     def test_create_spreadsheet(self):
         """
-            Garante que a única rota permitida é a da lista
+            Assure only list is allowed
         """
         url = reverse('spreadsheet-list')
         data = {
@@ -127,7 +127,7 @@ class SpreadsheetTests(APITestCase):
 
     def test_update_spreadsheet(self):
         """
-            Garante que a única rota permitida é a da lista
+            Assure only list is allowed
         """
         spreadsheet = Spreadsheet.objects.all().first()
         url = reverse('spreadsheet-detail', kwargs={"pk": spreadsheet.pk})
@@ -143,10 +143,74 @@ class SpreadsheetTests(APITestCase):
 
     def test_delete_spreadsheet(self):
         """
-            Garante que a única rota permitida é a da lista
+            Assure only list is allowed
         """
         spreadsheet = Spreadsheet.objects.all().first()
         url = reverse('spreadsheet-detail', kwargs={"pk": spreadsheet.pk})
         response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+class NotificationViewTests(APITestCase):
+    def test_valid_crete_notification(self):
+        """
+            Assure the notification creation
+        """
+        url = reverse('emailnotification-list')
+        data = {
+            'name': 'Foo Bar Zoo',
+            'email': 'foo@bar.com'
+        }
+
+        response = self.client.post(url, data=data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(EmailNotification.objects.count(), 1)
+
+    def test_invalid_crete_notification(self):
+        """
+            Assure email validation
+        """
+        url = reverse('emailnotification-list')
+        data = {
+            'name': 'Foo Bar Zoo',
+            'email': 'foobar.com'
+        }
+
+        response = self.client.post(url, data=data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unique_crete_notification(self):
+        """
+            Assure unique register from same email and name
+        """
+        url = reverse('emailnotification-list')
+        data = {
+            'name': 'Foo Bar Zoo',
+            'email': 'foo@bar.com'
+        }
+
+        response = self.client.post(url, data=data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(url, data=data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data.get('non_field_errors')[0].code, 'unique')
+
+    def test_other_methods(self):
+        """
+            Assure only create is allowed
+        """
+        notification = EmailNotification.objects.create(name='Foo Bar', email='foo@bar.com')
+
+        try:
+            url = reverse('emailnotification-detail', kwargs={'pk': notification.pk})
+        except Exception as e:
+            self.assertTrue(isinstance(e, exceptions.NoReverseMatch))
+
+        url = reverse('emailnotification-list')
+        response = self.client.get(url, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)

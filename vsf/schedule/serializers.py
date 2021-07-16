@@ -1,11 +1,11 @@
 from rest_framework import serializers
-from .models import Schedule, Spreadsheet
+from .models import Schedule, Spreadsheet, EmailNotification
 
 
 class SpreadsheetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Spreadsheet
-        fields = ['name', 'url', 'processed', 'date']
+        fields = ['id', 'name', 'url', 'processed', 'date']
 
 
 class ScheduleSerializer(serializers.ModelSerializer):
@@ -13,5 +13,11 @@ class ScheduleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Schedule
-        fields = ['name', 'birth_date', 'spreadsheet',
+        fields = ['name', 'birth_date', 'spreadsheet', 'id',
                   'spreadsheet_page', 'spreadsheet_line', 'place', 'date', 'dose']
+
+
+class EmailNotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailNotification
+        fields = ['name', 'email']

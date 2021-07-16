@@ -1,5 +1,8 @@
-/vsf/db.sqlite3
-/vsf/teste.log
-/vsf/spreadsheets
+/node_modules
 .git
 .gitignore
+/vsf/db.sqlite3
+/vsf/*.log
+/vsf/spreadsheets
+/vsf/staticfiles
+/vsf/frontend/static/frontend

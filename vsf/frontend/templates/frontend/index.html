@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+{% load render_bundle from webpack_loader %}
+<html>
+    {% load static %}
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Vacina Fortaleza</title>
+    </head>
+    <body>
+        <div id="root" class="content">
+        </div>
+        {% render_bundle 'frontend' %}
+    </body>
+</html>

@@ -11,3 +11,8 @@
 __pycache__
 db.sqlite3
 media
+
+# Front
+node_modules
+/vsf/frontend/static/frontend
+webpack-stats.json

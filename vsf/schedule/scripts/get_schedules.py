@@ -10,6 +10,7 @@ import fitz
 
 from django.shortcuts import render
 from django.core.files.storage import default_storage
+from django.core.mail import send_mail
 from django.conf import settings
 from django.db.models import Max
 
@@ -19,9 +20,9 @@ from rest_framework import viewsets, filters
 
 from django_filters.rest_framework import DjangoFilterBackend
 
-from schedule.models import Spreadsheet, Schedule
+from schedule.models import Spreadsheet, Schedule, EmailNotification
 from schedule.serializers import ScheduleSerializer
-from schedule.parsers import ScheduleParser, str_to_date
+from schedule.parsers import ScheduleParser, str_to_date, ZN_FORT
 
 
 ROOT_SPREADSHEET_URL = 'https://spreadsheets.google.com/feeds/list/1IJBDu8dRGLkBgX72sRWKY6R9GfefsaDCXBd3Dz9PZNs/14/public/values'
@@ -34,7 +35,7 @@ signal.signal(signal.SIGINT, lambda _, __: sys.exit(0))
 
 
 def run():
-    limit_date = (datetime.now() - timedelta(days=14)).date()
+    limit_date = (datetime.now() - timedelta(days=50)).date()
     xml = get_root_spreadsheet()
     if xml is None:
         print('Root xml not found')
@@ -49,6 +50,7 @@ def run():
     futures = [executor.submit(process_spreadsheet, spread)
                for spread in pending]
     concurrent.futures.wait(futures)
+    check_email_notification()
 
 
 def get_root_spreadsheet():
@@ -170,7 +172,8 @@ def process_spreadsheet(spreadsheet, limit_schedules_per_spreadsheet=0):
 
                 qtd_bulk = len(schedules_bulk)
                 if qtd_bulk:
-                    print(f'saving {qtd_bulk} schedules at pg {pg_number}/{page_end} from {spreadsheet.name}')
+                    print(
+                        f'saving {qtd_bulk} schedules at pg {pg_number}/{page_end} from {spreadsheet.name}')
                     Schedule.objects.bulk_create(schedules_bulk)
                 line_start = 0
 
@@ -180,3 +183,40 @@ def process_spreadsheet(spreadsheet, limit_schedules_per_spreadsheet=0):
     except Exception as e:
         print('general exception', repr(e))
         pass
+
+
+def check_email_notification():
+    for notification in EmailNotification.objects.filter(second_dose_sent=False):
+        schedules = Schedule.objects.select_related('spreadsheet').filter(
+            name__iexact=notification.name.strip(),
+            date__gte=notification.sent_at or notification.iat
+        )
+        if schedules.exists():
+            send_email_notification(notification, schedules)
+
+
+def send_email_notification(email_notification, schedules):
+    text_message = []
+
+    for schedule in schedules:
+        text_message.append(mail_messages_for_schedule(schedule))
+        if schedule.dose == 2:
+            email_notification.second_dose_sent = True
+
+    try:
+        send_mail('Vacina Fortaleza - Aviso Agendamento Encontrado', "\n---------------\n".join(text_message),
+                  'no-reply@appvacinafortaleza.com.br', [email_notification.email], fail_silently=False)
+        email_notification.sent_at = datetime.now()
+        email_notification.save()
+    except Exception as e:
+        print(repr(e))
+
+
+def mail_messages_for_schedule(schedule):
+    text_message = f'''O agendamento da {schedule.dose}ª dose 
+para {schedule.name} ({schedule.birth_date.strftime("%d/%m/%Y")})
+está marcado para {schedule.date.astimezone(ZN_FORT).strftime("%d/%m/%Y às %H:%M")} 
+em {schedule.place}
+Verifique no pdf {schedule.spreadsheet.name} na pg {schedule.spreadsheet_page} linha {schedule.spreadsheet_line}
+em {schedule.spreadsheet.url}'''
+    return text_message
