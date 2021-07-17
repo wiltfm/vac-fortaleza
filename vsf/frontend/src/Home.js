@@ -22,7 +22,7 @@ const Home = () => {
     <div style={{ padding: 20 }}>
       <Card title="Vacina contra Covid-19 Fortaleza" extra={<BtnExtra />}>
         <div>
-          Olha se teu nome saiu na lista de agendamento da vacina{' '}
+          Olha se seu nome saiu na lista de agendamento da vacina{' '}
           <a
             href="https://coronavirus.fortaleza.ce.gov.br/lista-vacinacao-d1.html"
             target="_blank"
@@ -31,8 +31,8 @@ const Home = () => {
             divulgada pela Prefeitura de Fortaleza
           </a>
           <br />
-          Aqui tu pode cadastra teu email para receber uma notificação assim que a gente souber que
-          teu nome tá na lista
+          Aqui você pode cadastrar seu email para receber uma notificação assim que a gente souber que
+          seu nome está na lista
         </div>
       </Card>
       {md ? (

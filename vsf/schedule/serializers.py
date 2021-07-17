@@ -1,4 +1,6 @@
+import unidecode
 from rest_framework import serializers
+
 from .models import Schedule, Spreadsheet, EmailNotification
 
 
@@ -18,6 +20,12 @@ class ScheduleSerializer(serializers.ModelSerializer):
 
 
 class EmailNotificationSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        attrs['name'] = unidecode.unidecode(attrs.get('name').strip().upper())
+        if EmailNotification.objects.filter(name__iexact=attrs.get('name'), email__iexact=attrs.get('email')).exists():
+            raise serializers.ValidationError('The fields name, email must make a unique set.', code='unique')
+        return attrs
+
     class Meta:
         model = EmailNotification
         fields = ['name', 'email']

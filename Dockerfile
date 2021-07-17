@@ -27,7 +27,7 @@ RUN python vsf/manage.py makemigrations
 RUN python vsf/manage.py migrate
 RUN npm run build
 
-EXPOSE 8000
+EXPOSE 8000 2999
 
 WORKDIR vsf
 

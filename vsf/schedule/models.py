@@ -27,10 +27,14 @@ class Schedule(models.Model):
 
 class EmailNotification(models.Model):
     name = models.CharField(max_length=300)
+    birth_date = models.DateField(null=True, blank=True)
     email = models.EmailField()
-    second_dose_sent = models.BooleanField(null=True, default=False)
-    sent_at = models.DateTimeField(null=True)
+    second_dose_sent = models.BooleanField(null=True, blank=True, default=False)
+    sent_at = models.DateTimeField(null=True, blank=True)
     iat = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ['name', 'email']
+
+    def __str__(self):
+        return f'{self.email} -> {self.name} ({self.birth_date})'

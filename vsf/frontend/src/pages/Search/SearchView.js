@@ -4,12 +4,12 @@ import ScheduleTable from './ScheduleTable';
 import { getSchedules } from '../../services/Api';
 
 const SearchView = () => {
-  const [name, setName] = useState('');
+  // const [name, setName] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [schedules, setSchedules] = useState([]);
 
-  const setSearchValue = () => setSearch(name.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+  const setSearchValue = (value) => setSearch(value.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
 
   const handleKeyDown = (event) => {
     if (event.key === 'Enter') setSearchValue();
@@ -39,19 +39,17 @@ const SearchView = () => {
     <>
       <Row wrap={false} style={{ alignItems: 'center' }}>
         <Col flex="auto">
-          <Input
+          <Input.Search
             placeholder="Nome"
-            onChange={(e) => setName(e.target.value)}
+            // onChange={(e) => setName(e.target.value)}
             onKeyDown={handleKeyDown}
+            enterButton={true}
+            loading={loading}
+            onSearch={setSearchValue}
           />
         </Col>
-        <Col flex="none">
-          <Button type="primary" onClick={setSearchValue} loading={loading}>
-            Buscar
-          </Button>
-        </Col>
       </Row>
-      <ScheduleTable dataSource={schedules} />
+      <ScheduleTable loading={loading} dataSource={schedules} />
     </>
   );
 };

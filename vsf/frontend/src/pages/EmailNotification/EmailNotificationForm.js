@@ -28,8 +28,9 @@ const EmailNotificationForm = ({ form, name, onEnter }) => {
       </p>
       <Form form={form} layout="vertical" initialValues={{ name }}>
         <Form.Item
-          label="Nome"
+          label="Nome Completo (sem acento)"
           name="name"
+          normalize={(value) => value.normalize("NFD").replace(/\p{Diacritic}/gu, '').toUpperCase()}
           rules={[
             {
               required: true,
@@ -37,7 +38,7 @@ const EmailNotificationForm = ({ form, name, onEnter }) => {
             },
           ]}
         >
-          <Input disabled={Boolean(name.length)} />
+          <Input placholder="Nome Completo (sem acento)" disabled={Boolean(name.length)} />
         </Form.Item>
         <Form.Item
           label="Email"

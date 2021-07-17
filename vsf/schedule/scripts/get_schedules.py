@@ -8,20 +8,12 @@ import concurrent
 
 import fitz
 
-from django.shortcuts import render
 from django.core.files.storage import default_storage
 from django.core.mail import send_mail
 from django.conf import settings
 from django.db.models import Max
 
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework import viewsets, filters
-
-from django_filters.rest_framework import DjangoFilterBackend
-
 from schedule.models import Spreadsheet, Schedule, EmailNotification
-from schedule.serializers import ScheduleSerializer
 from schedule.parsers import ScheduleParser, str_to_date, ZN_FORT
 
 
@@ -188,7 +180,7 @@ def process_spreadsheet(spreadsheet, limit_schedules_per_spreadsheet=0):
 def check_email_notification():
     for notification in EmailNotification.objects.filter(second_dose_sent=False):
         schedules = Schedule.objects.select_related('spreadsheet').filter(
-            name__iexact=notification.name.strip(),
+            name__unaccent__iexact=notification.name.strip(),
             date__gte=notification.sent_at or notification.iat
         )
         if schedules.exists():
