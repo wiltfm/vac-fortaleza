@@ -31,8 +31,8 @@ const Home = () => {
             divulgada pela Prefeitura de Fortaleza
           </a>
           <br />
-          Aqui você pode cadastrar seu email para receber uma notificação assim que a gente souber que
-          seu nome está na lista
+          Aqui você pode cadastrar seu email para receber uma notificação assim que a gente souber
+          que seu nome está na lista
         </div>
       </Card>
       {md ? (

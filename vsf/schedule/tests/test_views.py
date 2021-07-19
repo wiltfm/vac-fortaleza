@@ -37,8 +37,10 @@ class ScheduleTests(APITestCase):
         response = self.client.get(url, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json().get('count'), Schedule.objects.count())
-        self.assertEqual(response.json().get('results'), ScheduleSerializer(Schedule.objects.all(), many=True).data)
+        self.assertEqual(response.json().get(
+            'count'), Schedule.objects.count())
+        self.assertEqual(response.data.get('results'), ScheduleSerializer(
+            Schedule.objects.all().order_by('-date'), many=True).data)
 
     def test_create_schedule(self):
         """
@@ -56,7 +58,8 @@ class ScheduleTests(APITestCase):
 
         response = self.client.post(url, data=data, format='json')
 
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(response.status_code,
+                         status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def test_update_schedule(self):
         """
@@ -76,7 +79,8 @@ class ScheduleTests(APITestCase):
 
         response = self.client.delete(url, data=data, format='json')
 
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(response.status_code,
+                         status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def test_delete_schedule(self):
         """
@@ -86,7 +90,8 @@ class ScheduleTests(APITestCase):
         url = reverse('schedule-detail', kwargs={"pk": schedule.pk})
         response = self.client.delete(url)
 
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(response.status_code,
+                         status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class SpreadsheetTests(APITestCase):
@@ -108,8 +113,10 @@ class SpreadsheetTests(APITestCase):
         response = self.client.get(url, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json().get('count'), Spreadsheet.objects.count())
-        self.assertEqual(response.json().get('results'), SpreadsheetSerializer(Spreadsheet.objects.all(), many=True).data)
+        self.assertEqual(response.json().get('count'),
+                         Spreadsheet.objects.count())
+        self.assertEqual(response.json().get('results'), SpreadsheetSerializer(
+            Spreadsheet.objects.all(), many=True).data)
 
     def test_create_spreadsheet(self):
         """
@@ -123,7 +130,8 @@ class SpreadsheetTests(APITestCase):
 
         response = self.client.post(url, data=data, format='json')
 
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(response.status_code,
+                         status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def test_update_spreadsheet(self):
         """
@@ -139,7 +147,8 @@ class SpreadsheetTests(APITestCase):
 
         response = self.client.delete(url, data=data, format='json')
 
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(response.status_code,
+                         status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def test_delete_spreadsheet(self):
         """
@@ -149,7 +158,8 @@ class SpreadsheetTests(APITestCase):
         url = reverse('spreadsheet-detail', kwargs={"pk": spreadsheet.pk})
         response = self.client.delete(url)
 
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(response.status_code,
+                         status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class NotificationViewTests(APITestCase):
@@ -160,7 +170,8 @@ class NotificationViewTests(APITestCase):
         url = reverse('emailnotification-list')
         data = {
             'name': 'Foo Bar Zoo',
-            'email': 'foo@bar.com'
+            'email': 'foo@bar.com',
+            'birth_date': '1990-01-01'
         }
 
         response = self.client.post(url, data=data, format='json')
@@ -175,7 +186,8 @@ class NotificationViewTests(APITestCase):
         url = reverse('emailnotification-list')
         data = {
             'name': 'Foo Bar Zoo',
-            'email': 'foobar.com'
+            'email': 'foobar.com',
+            'birth_date': '1990-01-01'
         }
 
         response = self.client.post(url, data=data, format='json')
@@ -189,7 +201,8 @@ class NotificationViewTests(APITestCase):
         url = reverse('emailnotification-list')
         data = {
             'name': 'Foo Bar Zoo',
-            'email': 'foo@bar.com'
+            'email': 'foo@bar.com',
+            'birth_date': '1990-01-01'
         }
 
         response = self.client.post(url, data=data, format='json')
@@ -197,21 +210,26 @@ class NotificationViewTests(APITestCase):
         data['name'] = data['name'].lower()
         response = self.client.post(url, data=data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data.get('non_field_errors')[0].code, 'unique')
-        self.assertEqual(str(response.data.get('non_field_errors')[0]), 'The fields name, email must make a unique set.')
+        self.assertEqual(response.data.get(
+            'non_field_errors')[0].code, 'unique')
+        self.assertEqual(str(response.data.get('non_field_errors')[
+                         0]), 'The fields name, email, birth_date must make a unique set.')
 
     def test_other_methods(self):
         """
             Assure only create is allowed
         """
-        notification = EmailNotification.objects.create(name='Foo Bar', email='foo@bar.com')
+        notification = EmailNotification.objects.create(
+            name='Foo Bar', email='foo@bar.com')
 
         try:
-            url = reverse('emailnotification-detail', kwargs={'pk': notification.pk})
+            url = reverse('emailnotification-detail',
+                          kwargs={'pk': notification.pk})
         except Exception as e:
             self.assertTrue(isinstance(e, exceptions.NoReverseMatch))
 
         url = reverse('emailnotification-list')
         response = self.client.get(url, format='json')
 
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(response.status_code,
+                         status.HTTP_405_METHOD_NOT_ALLOWED)

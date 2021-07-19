@@ -13,6 +13,7 @@ export const postEmailNotification = (values) =>
 
 export const saveEmailNotification = async (values) => {
   try {
+    values.birth_date = values.birth_date.format('YYYY-MM-DD');
     const response = await postEmailNotification(values);
     if (response.ok) {
       notification.success({
@@ -24,7 +25,7 @@ export const saveEmailNotification = async (values) => {
       return;
     }
     const data = await response.json();
-    if (data.non_field_errors[0] === 'The fields name, email must make a unique set.') {
+    if (data.non_field_errors[0].includes('must make a unique set')) {
       notification.info({
         message: 'Já foi oh ^^',
         description: 'Perainda... esse email e nome já foi cadastrado, é só esperar!',
@@ -32,7 +33,6 @@ export const saveEmailNotification = async (values) => {
       });
       return;
     }
-    console.log('data: ', data);
   } catch (error) {
     console.error('Error:', error);
   }

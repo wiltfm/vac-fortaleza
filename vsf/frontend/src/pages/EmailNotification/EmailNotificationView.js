@@ -21,7 +21,7 @@ const EmailNotificationView = () => {
   return (
     <div>
       <Card>
-        <EmailNotificationForm form={form} name="" onEnter={handleSubmit} />
+        <EmailNotificationForm form={form} name="" birth_date="" onEnter={handleSubmit} />
         <Button type="primary" onClick={handleSubmit} loading={loading}>
           Me Notificar
         </Button>

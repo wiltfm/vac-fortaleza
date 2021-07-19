@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Form, Modal } from 'antd';
 import EmailNotificationForm from '../pages/EmailNotification/EmailNotificationForm';
 
-const EmailNotificationModal = ({ name, visible, onOk, onCancel }) => {
+const EmailNotificationModal = ({ name, birth_date, visible, onOk, onCancel }) => {
   const [form] = Form.useForm();
   const [confirmLoading, setConfirmLoading] = useState(false);
 
@@ -30,7 +30,12 @@ const EmailNotificationModal = ({ name, visible, onOk, onCancel }) => {
       onOk={handleSubmit}
       onCancel={onCancel}
     >
-      <EmailNotificationForm form={form} name={name} onEnter={handleSubmit} />
+      <EmailNotificationForm
+        form={form}
+        name={name}
+        onEnter={handleSubmit}
+        birth_date={birth_date}
+      />
     </Modal>
   );
 };

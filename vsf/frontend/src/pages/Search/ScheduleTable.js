@@ -8,10 +8,12 @@ import { saveEmailNotification } from '../../services/Api';
 const ScheduleTable = (props) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalName, setModalName] = useState('');
+  const [modalBirthDate, setModalBirthDate] = useState('');
 
   const onEmailClicked = (schedule) => {
     setModalVisible(true);
     setModalName(schedule.name);
+    setModalBirthDate(schedule.birth_date);
   };
 
   const onOk = async (values) => {
@@ -56,6 +58,7 @@ const ScheduleTable = (props) => {
       <EmailNotificationModal
         visible={modalVisible}
         name={modalName}
+        birth_date={modalBirthDate}
         onOk={onOk}
         onCancel={() => setModalVisible(false)}
       />

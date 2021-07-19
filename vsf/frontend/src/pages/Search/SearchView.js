@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Input, Row, Col } from 'antd';
+import { Input, Row, Col } from 'antd';
 import ScheduleTable from './ScheduleTable';
 import { getSchedules } from '../../services/Api';
 
@@ -9,10 +9,12 @@ const SearchView = () => {
   const [loading, setLoading] = useState(false);
   const [schedules, setSchedules] = useState([]);
 
-  const setSearchValue = (value) => setSearch(value.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+  const setSearchValue = (value) =>
+    setSearch(value.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
 
   const handleKeyDown = (event) => {
-    if (event.key === 'Enter') setSearchValue();
+    if (event.key === 'Enter')
+      setSearchValue(event.target.value.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
   };
 
   useEffect(() => {
@@ -40,10 +42,10 @@ const SearchView = () => {
       <Row wrap={false} style={{ alignItems: 'center' }}>
         <Col flex="auto">
           <Input.Search
+            enterButton
             placeholder="Nome"
             // onChange={(e) => setName(e.target.value)}
             onKeyDown={handleKeyDown}
-            enterButton={true}
             loading={loading}
             onSearch={setSearchValue}
           />

@@ -34,7 +34,7 @@ class EmailNotification(models.Model):
     iat = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ['name', 'email']
+        unique_together = ['name', 'email', 'birth_date']
 
     def __str__(self):
         return f'{self.email} -> {self.name} ({self.birth_date})'
