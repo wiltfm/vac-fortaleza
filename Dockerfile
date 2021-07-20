@@ -26,6 +26,7 @@ COPY . .
 RUN python vsf/manage.py makemigrations
 RUN python vsf/manage.py migrate
 RUN npm run build
+RUN python vsf/manage.py collectstatic
 
 EXPOSE 8000 2999
 
