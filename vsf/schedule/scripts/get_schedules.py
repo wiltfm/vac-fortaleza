@@ -181,8 +181,10 @@ def check_email_notification():
     for notification in EmailNotification.objects.filter(second_dose_sent=False):
         schedules = Schedule.objects.select_related('spreadsheet').filter(
             name__unaccent__iexact=notification.name.strip(),
-            date__gte=notification.sent_at or notification.iat
-        )
+            iat__gt=notification.sent_at or notification.iat
+        ).exclude(date__lt=notification.iat)
+        if notification.birth_date is not None:
+            schedules = schedules.filter(birth_date=notification.birth_date)
         if schedules.exists():
             send_email_notification(notification, schedules)
 
