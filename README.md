@@ -1,12 +1,27 @@
 # Vaccine Schedule Fortaleza
 
-Is a django project to find out if your name is in Fortaleza schedule list to get vaccineted.
+![Vac Fortaleza Logo](assets/logo.png)
 
-# Requirements
+Is a Django/React JS project to find out if your name is in Fortaleza schedule list to get vaccinated and to register your email to receive a notification when scheduled.
+
+:raised_back_of_hand: Disclaimer: As this is a hobby project I didn't mind to serve the frontend with Django (not ideal).
+
+## Live demo
+
+http://vacina-fortaleza.herokuapp.com/
+
+![Vac Fortaleza Screencast](assets/screencast.gif)
+
+## Requirements
 
 - Docker 19.03.6+
 - Compose 1.24.1+
 
+### Technologies used
+
+- Django Rest Framework
+- React JS
+ 
 ## Setup
     
 ```bash
