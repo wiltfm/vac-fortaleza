@@ -1,18 +1,17 @@
 from datetime import datetime, timedelta
 from django.test import TestCase
-from django.db.models import Count
 from schedule.scripts import get_schedules as script
 from schedule.models import Spreadsheet
 
 
 class ScriptTests(TestCase):
     def setUp(self):
-        self.root_xml = script.get_root_spreadsheet()
+        self.root_content = script.get_root_spreadsheet()
         limit_date = (datetime.now() - timedelta(days=7)).date()
-        self.entries = script.get_xml_entry_element(self.root_xml, limit_date)
+        self.entries = script.get_json_entry_element(self.root_content, limit_date)
 
-    def test_get_root_xml(self):
-        self.assertTrue(self.root_xml)
+    def test_get_root_content(self):
+        self.assertTrue(self.root_content)
 
     def test_entries(self):
         self.assertGreaterEqual(len(list(self.entries)), 1)

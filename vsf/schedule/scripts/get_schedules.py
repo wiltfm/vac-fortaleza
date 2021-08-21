@@ -2,6 +2,7 @@ import requests
 import shutil
 import signal
 import sys
+import json
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 import concurrent
@@ -17,7 +18,7 @@ from schedule.models import Spreadsheet, Schedule, EmailNotification
 from schedule.parsers import ScheduleParser, str_to_date, ZN_FORT
 
 
-ROOT_SPREADSHEET_URL = 'https://spreadsheets.google.com/feeds/list/1IJBDu8dRGLkBgX72sRWKY6R9GfefsaDCXBd3Dz9PZNs/14/public/values'
+ROOT_SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1IJBDu8dRGLkBgX72sRWKY6R9GfefsaDCXBd3Dz9PZNs/gviz/tq?gid=970021343&tq=SELECT%20%2A'
 NAMESPACE = {'xmlns': 'http://www.w3.org/2005/Atom',
              'gsx': 'http://schemas.google.com/spreadsheets/2006/extended'}
 SQLITE_MAX_THREADS = 1
@@ -28,11 +29,11 @@ signal.signal(signal.SIGINT, lambda _, __: sys.exit(0))
 
 def run():
     limit_date = (datetime.now() - timedelta(days=50)).date()
-    xml = get_root_spreadsheet()
-    if xml is None:
-        print('Root xml not found')
+    json_content = get_root_spreadsheet()
+    if json_content is None:
+        print('Json content not found')
         return
-    entries = get_xml_entry_element(xml, limit_date)
+    entries = get_json_entry_element(json_content, limit_date)
     save_spreadsheets(entries)
     pending = Spreadsheet.objects.filter(
         processed=False, date__gte=limit_date).order_by('-date')
@@ -51,6 +52,30 @@ def get_root_spreadsheet():
         print('Root spreadsheet downloaded')
         return response.content
     return None
+
+
+def get_json_entry_element(json_content, limit_date):
+    value = json.loads(json_content.decode().replace('/*O_o*/\ngoogle.visualization.Query.setResponse(', '')[:-2])
+    for row in value.get('table').get('rows'):
+        content = row.get('c')
+        try:
+            name = content[0].get('v')
+            pdf_url = content[2].get('v')
+            date = str_to_date(name)
+
+            if not pdf_url.endswith('.pdf'):
+                continue
+
+            if pdf_url.startswith('./'):
+                pdf_url = f'https://coronavirus.fortaleza.ce.gov.br/{pdf_url[2:]}'
+
+            yield {
+                'name': name,
+                'url': pdf_url,
+                'date': date,
+            }
+        except Exception as e:
+            print('json exception', repr(e))
 
 
 def get_xml_entry_element(xml, limit_date):
