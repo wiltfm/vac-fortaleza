@@ -4,7 +4,7 @@ import signal
 import sys
 import json
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import concurrent
 
 import fitz
@@ -12,6 +12,7 @@ import fitz
 from django.core.files.storage import default_storage
 from django.core.mail import send_mail
 from django.conf import settings
+from django.db import connection
 from django.db.models import Max
 
 from schedule.models import Spreadsheet, Schedule, EmailNotification
@@ -205,21 +206,31 @@ def process_spreadsheet(spreadsheet, limit_schedules_per_spreadsheet=0):
         pass
 
 
-def get_valid_schedules_for_email_notification(notification):
-    return Schedule.objects.select_related('spreadsheet').filter(
-            name__unaccent__iexact=notification.name.strip(),
+def get_valid_schedules_for_email_notification(schedules, notification):
+    name_lookup = {"name__unaccent__iexact": notification.name.strip()}
+    if connection.vendor == 'sqlite':
+        name_lookup = {"name__iexact": notification.name.strip()}
+
+    query = schedules.filter(
+            **name_lookup,
             iat__gt=notification.sent_at or notification.iat,
             dose__gt=notification.notified_dose
         ).exclude(date__lt=notification.iat)
 
+    if notification.birth_date is not None:
+        query = query.filter(birth_date=notification.birth_date)
+
+    return query   
+
 
 def check_email_notification():
+    print('checking email notification')
     notifications = EmailNotification.objects.filter(notified_dose__lt=MAX_DOSE)
-    print('notificacoes de emails cadastrados: ', notifications.count())
+    names = notifications.values_list('name', flat=True)
+    possible_schedules = Schedule.objects.filter(name__in=names).select_related('spreadsheet')
+
     for notification in notifications:
-        schedules = get_valid_schedules_for_email_notification(notification)
-        if notification.birth_date is not None:
-            schedules = schedules.filter(birth_date=notification.birth_date)
+        schedules = get_valid_schedules_for_email_notification(possible_schedules, notification)
         if schedules.exists():
             send_email_notification(notification, schedules)
 
@@ -232,10 +243,10 @@ def send_email_notification(email_notification, schedules):
         email_notification.notified_dose = schedule.dose
 
     try:
-        print('Enviando email para: ', email_notification.email)
+        print('Enviando email para: ', email_notification.name, ' - ', email_notification.email)
         send_mail('Vacina Fortaleza - Aviso Agendamento Encontrado', "\n---------------\n".join(text_message),
                   'no-reply@appvacinafortaleza.com.br', [email_notification.email], fail_silently=False)
-        email_notification.sent_at = datetime.now()
+        email_notification.sent_at = datetime.now(timezone.utc)
         email_notification.save()
     except Exception as e:
         print(repr(e))
