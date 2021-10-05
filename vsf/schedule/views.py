@@ -33,9 +33,10 @@ class SpreadsheetView(viewsets.ReadOnlyModelViewSet):
     """
     queryset = Spreadsheet.objects.all()
     serializer_class = SpreadsheetSerializer
-    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['name']
     filterset_fields = ['name', 'url', 'processed', 'date']
+    ordering_fields = ['date']
 
 
 class SpreadsheetStatsView(viewsets.ViewSet):
