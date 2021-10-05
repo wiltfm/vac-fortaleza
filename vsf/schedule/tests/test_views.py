@@ -40,7 +40,7 @@ class ScheduleTests(APITestCase):
         self.assertEqual(response.json().get(
             'count'), Schedule.objects.count())
         self.assertEqual(response.data.get('results'), ScheduleSerializer(
-            Schedule.objects.all().order_by('-date'), many=True).data)
+            Schedule.objects.all(), many=True).data)
 
     def test_create_schedule(self):
         """

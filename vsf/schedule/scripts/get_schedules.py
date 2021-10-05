@@ -23,12 +23,14 @@ NAMESPACE = {'xmlns': 'http://www.w3.org/2005/Atom',
              'gsx': 'http://schemas.google.com/spreadsheets/2006/extended'}
 SQLITE_MAX_THREADS = 1
 POSTGRES_MAX_THREADS = 4
+DAYS_TO_SUBTRACT_FROM_TODAY = 15
+MAX_DOSE = 2
 
 signal.signal(signal.SIGINT, lambda _, __: sys.exit(0))
 
 
 def run():
-    limit_date = (datetime.now() - timedelta(days=50)).date()
+    limit_date = (datetime.now() - timedelta(days=DAYS_TO_SUBTRACT_FROM_TODAY)).date()
     json_content = get_root_spreadsheet()
     if json_content is None:
         print('Json content not found')
@@ -44,6 +46,7 @@ def run():
                for spread in pending]
     concurrent.futures.wait(futures)
     check_email_notification()
+    print('get_schedules end')
 
 
 def get_root_spreadsheet():
@@ -174,7 +177,7 @@ def process_spreadsheet(spreadsheet, limit_schedules_per_spreadsheet=0):
                         pass
 
                 if limit_schedules_per_spreadsheet:
-                    if Schedule.objects.count() > limit_schedules_per_spreadsheet:
+                    if Schedule.objects.filter(spreadsheet=spreadsheet).count() > limit_schedules_per_spreadsheet:
                         print('text_line', text_line)
                         print('Already filled the required schedules')
                         processed = False
@@ -202,12 +205,19 @@ def process_spreadsheet(spreadsheet, limit_schedules_per_spreadsheet=0):
         pass
 
 
-def check_email_notification():
-    for notification in EmailNotification.objects.filter(second_dose_sent=False):
-        schedules = Schedule.objects.select_related('spreadsheet').filter(
+def get_valid_schedules_for_email_notification(notification):
+    return Schedule.objects.select_related('spreadsheet').filter(
             name__unaccent__iexact=notification.name.strip(),
-            iat__gt=notification.sent_at or notification.iat
+            iat__gt=notification.sent_at or notification.iat,
+            dose__gt=notification.notified_dose
         ).exclude(date__lt=notification.iat)
+
+
+def check_email_notification():
+    notifications = EmailNotification.objects.filter(notified_dose__lt=MAX_DOSE)
+    print('notificacoes de emails cadastrados: ', notifications.count())
+    for notification in notifications:
+        schedules = get_valid_schedules_for_email_notification(notification)
         if notification.birth_date is not None:
             schedules = schedules.filter(birth_date=notification.birth_date)
         if schedules.exists():
@@ -219,10 +229,10 @@ def send_email_notification(email_notification, schedules):
 
     for schedule in schedules:
         text_message.append(mail_messages_for_schedule(schedule))
-        if schedule.dose == 2:
-            email_notification.second_dose_sent = True
+        email_notification.notified_dose = schedule.dose
 
     try:
+        print('Enviando email para: ', email_notification.email)
         send_mail('Vacina Fortaleza - Aviso Agendamento Encontrado', "\n---------------\n".join(text_message),
                   'no-reply@appvacinafortaleza.com.br', [email_notification.email], fail_silently=False)
         email_notification.sent_at = datetime.now()
