@@ -1,5 +1,5 @@
 from unittest import TestCase
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from schedule.parsers import ScheduleParser, ZN_FORT
 
 
@@ -59,6 +59,13 @@ class ScheduleParserTests(TestCase):
         sp = ScheduleParser(line)
         self.assertEqual(sp.datetime().astimezone(), datetime(
             2021, 5, 30, hour=13, tzinfo=ZN_FORT).astimezone())
+        self.assertTrue(sp.is_valid)
+
+    def test_parse_D3(self):
+        line = 'ANTONIA HOSANA DE SOUSA GUERRA\n 08/12/1940\n SHOPPING IGUATEMI - PISO TERREO EXPANSAO\n 06/10/2021\n 16:00:00\n 3\n'
+        sp = ScheduleParser(line, True)
+        self.assertEqual(sp.datetime().astimezone(), datetime(
+            2021, 10, 6, hour=16, tzinfo=ZN_FORT).astimezone())
         self.assertTrue(sp.is_valid)
 
     def test_datetime(self):
