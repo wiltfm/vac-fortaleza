@@ -4,6 +4,7 @@ import { MenuOutlined } from '@ant-design/icons';
 
 import Router from './Router';
 import AppMenu from './components/Menu';
+import SheetsMarquee from './components/SheetsMarquee';
 
 const { useBreakpoint } = Grid;
 
@@ -58,6 +59,7 @@ const Home = () => {
       <div style={{ paddingTop: 16 }}>
         <Router />
       </div>
+      <SheetsMarquee />
     </div>
   );
 };

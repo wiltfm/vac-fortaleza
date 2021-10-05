@@ -2,6 +2,7 @@ import { notification } from 'antd';
 
 export const getSchedules = (search) => fetch(`/api/schedule/?search=${search}`);
 export const getStats = () => fetch('/api/stats/');
+export const getLastSpreadsheetsProcessed = () => fetch('api/spreadsheet/?limit=3&processed=true&ordering=-date');
 export const postEmailNotification = (values) =>
   fetch('/api/notification/', {
     method: 'POST', // or 'PUT'
