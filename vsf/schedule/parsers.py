@@ -60,7 +60,7 @@ class ScheduleParser(object):
                             + r'(.*)' \
                             + POSSIBLE_DATE_REGEX[idx_second] \
                             + r'\s*(\d{2}:\d{2}:*\d{0,2})\s*' \
-                            + r'([1-2]).*'
+                            + r'([1-3]).*'
 
                     match = re.match(regex, test_line)
 
