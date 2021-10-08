@@ -245,7 +245,7 @@ def send_email_notification(email_notification, schedules):
     try:
         print('Enviando email para: ', email_notification.name, ' - ', email_notification.email)
         send_mail('Vacina Fortaleza - Aviso Agendamento Encontrado', "\n---------------\n".join(text_message),
-                  'no-reply@appvacinafortaleza.com.br', [email_notification.email], fail_silently=False)
+                  'appvacinafortaleza@gmail.com', [email_notification.email], fail_silently=False)
         email_notification.sent_at = datetime.now(timezone.utc)
         email_notification.save()
     except Exception as e:
